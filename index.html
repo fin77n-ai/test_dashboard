@@ -3,42 +3,48 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Team Collaboration Dashboard</title>
+<title>Full‑width Team Dashboard</title>
 
-<!-- Tailwind CDN -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<style>
+  .auto-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}
+</style>
 </head>
 
 <body class="bg-gray-100 font-sans text-gray-800 min-h-screen flex flex-col">
 <header class="bg-gray-900 text-white py-4 px-6 flex flex-wrap justify-between items-center shadow">
   <h1 class="text-lg font-semibold">Project Dashboard</h1>
-  <div class="space-x-2">
-    <button id="addProjectBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">+ Project</button>
-    <button id="undoBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded hidden">Undo Delete</button>
+  <div class="flex flex-wrap gap-2">
+    <button id="addProjectBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">+ Project</button>
+    <button id="undoBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded hidden">Undo Delete</button>
+    <button onclick="exportDataJSON()" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded">Export JSON</button>
+    <button onclick="exportDataCSV()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded">Export CSV</button>
+    <label class="bg-white text-gray-800 border rounded px-2 py-1 cursor-pointer">
+      Import JSON
+      <input type="file" accept=".json" onchange="importData(this.files[0])" class="hidden">
+    </label>
   </div>
 </header>
 
-<section id="statusManager" class="bg-white shadow rounded-lg mx-6 my-4 p-4">
+<section id="statusManager" class="bg-white shadow rounded-lg mx-2 my-3 p-4">
   <h3 class="font-medium mb-2">Customize Status Labels</h3>
-  <div id="statusList" class="space-y-2 mb-3"></div>
-  <button id="addStatusBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">+ Add Status</button>
+  <div id="statusList" class="space-y-1 mb-2"></div>
+  <button id="addStatusBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">+ Add Status</button>
 </section>
 
-<main id="projectContainer" class="flex-1 px-6 pb-8"></main>
+<main id="projectContainer" class="flex-1 w-full m-0 p-0"></main>
 
-<footer class="bg-gray-200 text-center py-3 text-sm">
+<footer class="bg-gray-200 text-center py-2 text-sm">
   Last updated: <time id="lastUpdated"></time>
 </footer>
 
 <script>
-/* ---------- EmailJS (optional) ---------- */
 const EMAILJS_PUBLIC_KEY='YOUR_PUBLIC_KEY';
 const EMAILJS_SERVICE_ID='YOUR_SERVICE_ID';
 const EMAILJS_TEMPLATE_ID='YOUR_TEMPLATE_ID';
 try{emailjs.init(EMAILJS_PUBLIC_KEY);}catch(e){}
 
-/* ---------- DOM + Data ---------- */
 const container=document.getElementById('projectContainer');
 const addProjectBtn=document.getElementById('addProjectBtn');
 const addStatusBtn=document.getElementById('addStatusBtn');
@@ -48,8 +54,8 @@ const statusList=document.getElementById('statusList');
 
 let projects=JSON.parse(localStorage.getItem('projects'))||[];
 let statuses=JSON.parse(localStorage.getItem('statuses'))||[
- {key:'todo',label:'To Do',color:'#fed7d7'},
- {key:'in-progress',label:'In Progress',color:'#fefcbf'},
+ {key:'todo',label:'To Do',color:'#fed7d7'},
+ {key:'in‑progress',label:'In Progress',color:'#fefcbf'},
  {key:'done',label:'Done',color:'#c6f6d5'}
 ];
 let lastDeleted=null;
@@ -58,87 +64,80 @@ let lastDeleted=null;
 function renderStatuses(){
   statusList.innerHTML='';
   statuses.forEach((s,i)=>{
-    const line=document.createElement('div');
-    line.className="flex items-center space-x-2";
-    line.innerHTML=`
+    const row=document.createElement('div');
+    row.className="flex items-center space-x-2";
+    row.innerHTML=`
       <input type="text" value="${s.label}" onchange="updateStatusLabel(${i},this.value)" class="border rounded px-2 py-1 flex-1" />
       <input type="color" value="${s.color}" onchange="updateStatusColor(${i},this.value)" />
-      <button onclick="removeStatus(${i})" class="text-red-600 hover:text-red-800">✖</button>
-    `;
-    statusList.appendChild(line);
+      <button onclick="removeStatus(${i})" class="text-red-600 hover:text-red-800">✖</button>`;
+    statusList.appendChild(row);
   });
   localStorage.setItem('statuses',JSON.stringify(statuses));
   renderProjects();
 }
-function addStatus(){const n=prompt('Status name:');if(!n)return;statuses.push({key:n.toLowerCase().replace(/\s+/g,'-'),label:n,color:'#e5e5e5'});renderStatuses();}
+function addStatus(){const n=prompt('Status name:');if(!n)return;statuses.push({key:n.toLowerCase().replace(/\s+/g,'-'),label:n,color:'#e5e5e5'});renderStatuses();}
 function updateStatusLabel(i,v){statuses[i].label=v;renderStatuses();}
 function updateStatusColor(i,v){statuses[i].color=v;renderStatuses();}
-function removeStatus(i){if(confirm('Delete this status?')){statuses.splice(i,1);renderStatuses();}}
+function removeStatus(i){if(confirm('Delete this status?')){statuses.splice(i,1);renderStatuses();}}
 
 /* ---------- Rendering ---------- */
 function renderProjects(){
   container.innerHTML='';
   const grid=document.createElement('div');
-  grid.className='grid gap-4 md:grid-cols-2 lg:grid-cols-3';
+  grid.className='auto-grid w-full px-0';
   container.appendChild(grid);
 
   const completeKey=statuses.at(-1)?.key||'done';
 
   projects.forEach((p,pIdx)=>{
     const box=document.createElement('div');
-    box.className='bg-white rounded-lg shadow hover:shadow-md transition p-4';
+    box.className='bg-white rounded-lg shadow hover:shadow-md transition p-2 w-full';
     box.innerHTML=`
-      <div class="flex justify-between items-center mb-2">
+      <div class="flex justify-between items-center mb-2 px-2">
         <h2 class="text-lg font-semibold">${p.name}</h2>
         <div class="space-x-1">
-          <button onclick="addLocale(${pIdx})" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-2 py-1 rounded">+ Locale</button>
+          <button onclick="addLocale(${pIdx})" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-2 py-1 rounded">+ Locale</button>
           <button onclick="removeProject(${pIdx})" class="bg-red-500 hover:bg-red-600 text-white text-sm px-2 py-1 rounded">Delete</button>
         </div>
-      </div>
-    `;
-
+      </div>`;
     grid.appendChild(box);
 
-    /* Project progress */
-    const allTasks=p.locales.flatMap(l=>l.tasks||[]);
-    const totalTasks=allTasks.length;
-    const doneTasks=allTasks.filter(t=>t.status===completeKey).length;
-    const percent=totalTasks?Math.round((doneTasks/totalTasks)*100):0;
+    const all=p.locales.flatMap(l=>l.tasks||[]);
+    const total=all.length;
+    const doneCount=all.filter(t=>t.status===completeKey).length;
+    const percent=total?Math.round(doneCount/total*100):0;
     const color=percent>=66?'#16a34a':percent>=33?'#f59e0b':'#dc2626';
     box.innerHTML+=`
-      <div class="h-2 bg-gray-200 rounded overflow-hidden mb-1">
+      <div class="h-2 bg-gray-200 rounded overflow-hidden mb-1 mx-2">
         <div class="h-full transition-all duration-500 ease-out" style="width:${percent}%;background:${color}"></div>
       </div>
-      <div class="text-sm text-right text-gray-600 mb-3">${percent}% (${doneTasks}/${totalTasks})</div>
-    `;
+      <div class="text-sm text-right text-gray-600 mb-3 mr-2">${percent}% (${doneCount}/${total})</div>`;
 
     p.locales.forEach((loc,lIdx)=>{
       const locDiv=document.createElement('div');
-      locDiv.className='border border-gray-200 rounded-md p-3 mb-3 bg-gray-50';
+      locDiv.className='border-t border-b border-gray-200 bg-gray-50 mt-3 mb-3';
       locDiv.innerHTML=`
-        <div class="flex justify-between items-center mb-2">
+        <div class="flex justify-between items-center mb-2 px-2">
           <h3 class="font-medium">${loc.name}</h3>
           <div class="space-x-1">
-            <button onclick="addTask(${pIdx},${lIdx})" class="bg-blue-400 hover:bg-blue-500 text-white text-xs px-2 py-1 rounded">+ Task</button>
+            <button onclick="addTask(${pIdx},${lIdx})" class="bg-blue-400 hover:bg-blue-500 text-white text-xs px-2 py-1 rounded">+ Task</button>
             <button onclick="removeLocale(${pIdx},${lIdx})" class="bg-red-400 hover:bg-red-500 text-white text-xs px-2 py-1 rounded">Delete</button>
           </div>
-        </div>
-      `;
+        </div>`;
       box.appendChild(locDiv);
 
-      const total=loc.tasks.length;
+      const tot=loc.tasks.length;
       const done=loc.tasks.filter(t=>t.status===completeKey).length;
-      const pct=total?Math.round((done/total)*100):0;
+      const pct=tot?Math.round(done/tot*100):0;
       const c=pct>=66?'#16a34a':pct>=33?'#f59e0b':'#dc2626';
       locDiv.innerHTML+=`
-        <div class="h-1.5 rounded bg-gray-200 overflow-hidden mb-1">
-          <div class="h-1.5 transition-all duration-500 ease-out" style="width:${pct}%;background:${c};"></div>
+        <div class="h-1.5 bg-gray-200 rounded overflow-hidden mb-1 mx-2">
+          <div class="h-1.5 transition-all duration-500 ease-out" style="width:${pct}%;background:${c}"></div>
         </div>
-        <div class="text-xs text-right text-gray-500 mb-2">${pct}% (${done}/${total})</div>
-      `;
+        <div class="text-xs text-right text-gray-500 mb-2 mr-2">${pct}% (${done}/${tot})</div>`;
 
       const gridTasks=document.createElement('div');
-      gridTasks.className='grid sm:grid-cols-2 gap-2';
+      gridTasks.className='grid sm:grid-cols-2 md:grid-cols-3 gap-2 w-full px-0 mx-0';
       loc.tasks.forEach((t,tIdx)=>{
         const s=statuses.find(x=>x.key===t.status)||statuses[0];
         const card=document.createElement('div');
@@ -151,20 +150,18 @@ function renderProjects(){
           timelineHTML=recent.map(h=>{
             const fromLabel=(statuses.find(s=>s.key===h.from)?.label)||h.from;
             const toLabel=(statuses.find(s=>s.key===h.to)?.label)||h.to;
-            return `<div class='border-l-2 pl-2 text-xs mb-1 text-gray-700'>
-                      <div>${fromLabel} → ${toLabel}</div>
-                      <div class='text-gray-500'>${h.time}</div>
+            return `<div class="border-l-2 pl-2 text-xs mb-1 text-gray-700">
+                      <div>${fromLabel} → ${toLabel}</div>
+                      <div class="text-gray-500">${h.time}</div>
                     </div>`;
           }).join('');
           if(t.history.length>3)
-            timelineHTML+=`<div class='text-blue-700 text-xs cursor-pointer' onclick='viewHistory(${pIdx},${lIdx},${tIdx})'>View full</div>`;
-        } else {
-          timelineHTML='<div class="text-gray-500 text-xs">No history yet</div>';
-        }
+            timelineHTML+=`<div class="text-blue-700 text-xs cursor-pointer" onclick="viewHistory(${pIdx},${lIdx},${tIdx})">View full</div>`;
+        }else{ timelineHTML='<div class="text-gray-500 text-xs">No history yet</div>'; }
 
         card.innerHTML=`
           <div class="font-semibold mb-1">${t.name}</div>
-          <input type="email" placeholder="Assignee email" value="${t.assignee||''}"
+          <input type="email" placeholder="Assignee email" value="${t.assignee||''}"
                  onchange="updateAssignee(${pIdx},${lIdx},${tIdx},this.value)"
                  class="w-full border rounded px-2 py-1 text-sm mb-1"/>
           <div class="flex space-x-1 items-center mb-1">
@@ -174,8 +171,7 @@ function renderProjects(){
             <button class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded" onclick="saveStatus(${pIdx},${lIdx},${tIdx})">💾</button>
             <button class="bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded" onclick="removeTask(${pIdx},${lIdx},${tIdx})">🗑</button>
           </div>
-          <div class="mt-1">${timelineHTML}</div>
-        `;
+          <div>${timelineHTML}</div>`;
         gridTasks.appendChild(card);
       });
       locDiv.appendChild(gridTasks);
@@ -186,66 +182,79 @@ function renderProjects(){
   undoBtn.classList.toggle('hidden',!lastDeleted);
 }
 
-/* ---------- CRUD ---------- */
-function addProject(){const n=prompt('Project name:');if(!n)return;projects.push({name:n,locales:[]});renderProjects();}
-function removeProject(i){if(confirm('Delete this project?')){lastDeleted={type:'project',data:projects[i],index:i};projects.splice(i,1);renderProjects();}}
-function addLocale(p){const n=prompt('Locale:');if(!n)return;projects[p].locales.push({name:n,tasks:[]});renderProjects();}
-function removeLocale(p,l){if(confirm('Delete locale?')){lastDeleted={type:'locale',data:projects[p].locales[l],parent:p,index:l};projects[p].locales.splice(l,1);renderProjects();}}
-function addTask(p,l){const n=prompt('Task name:');if(!n)return;projects[p].locales[l].tasks.push({name:n,status:statuses[0].key,history:[]});renderProjects();}
-function removeTask(p,l,t){if(confirm('Delete task?')){lastDeleted={type:'task',data:projects[p].locales[l].tasks[t],parentP:p,parentL:l,index:t};projects[p].locales[l].tasks.splice(t,1);renderProjects();}}
+/* ---------- CRUD + helpers ---------- */
+function addProject(){const n=prompt('Project name:');if(!n)return;projects.push({name:n,locales:[]});renderProjects();}
+function removeProject(i){if(confirm('Delete project?')){lastDeleted={type:'project',data:projects[i],index:i};projects.splice(i,1);renderProjects();}}
+function addLocale(p){const n=prompt('Locale name:');if(!n)return;projects[p].locales.push({name:n,tasks:[]});renderProjects();}
+function removeLocale(p,l){if(confirm('Delete locale?')){lastDeleted={type:'locale',data:projects[p].locales[l],parent:p,index:l};projects[p].locales.splice(l,1);renderProjects();}}
+function addTask(p,l){const n=prompt('Task name:');if(!n)return;projects[p].locales[l].tasks.push({name:n,status:statuses[0].key,history:[]});renderProjects();}
+function removeTask(p,l,t){if(confirm('Delete task?')){lastDeleted={type:'task',data:projects[p].locales[l].tasks[t],parentP:p,parentL:l,index:t};projects[p].locales[l].tasks.splice(t,1);renderProjects();}}
+function saveStatus(p,l,t){const sel=document.getElementById(`status-${p}-${l}-${t}`);updateStatus(p,l,t,sel.value);}
+function updateStatus(p,l,t,val){const task=projects[p].locales[l].tasks[t];const old=task.status||'(none)';const now=new Date().toLocaleString();if(!task.history)task.history=[];task.history.push({from:old,to:val,by:'self',time:now});task.status=val;localStorage.setItem('projects',JSON.stringify(projects));renderProjects();}
+function updateAssignee(p,l,t,email){projects[p].locales[l].tasks[t].assignee=email;localStorage.setItem('projects',JSON.stringify(projects));renderProjects();}
+function viewHistory(p,l,t){const task=projects[p].locales[l].tasks[t];if(!task.history||!task.history.length)return alert(`No changes yet`);const log=task.history.map(h=>{const f=(statuses.find(s=>s.key===h.from)?.label)||h.from;const to=(statuses.find(s=>s.key===h.to)?.label)||h.to;return`• ${h.time}: ${f} → ${to}`;}).join('\n');alert(`History for "${task.name}":\n\n${log}`);}
+function undoLastDelete(){if(!lastDeleted)return;const d=lastDeleted;switch(d.type){case'project':projects.splice(d.index,0,d.data);break;case'locale':projects[d.parent].locales.splice(d.index,0,d.data);break;case'task':projects[d.parentP].locales[d.parentL].tasks.splice(d.index,0,d.data);break;}lastDeleted=null;renderProjects();}
 
-/* ---------- Status + Assignee + History ---------- */
-function saveStatus(p,l,t){
-  const select=document.getElementById(`status-${p}-${l}-${t}`);
-  const val=select.value;
-  updateStatus(p,l,t,val);
-  const btn=select.nextElementSibling;
-  btn.textContent='✓';
-  setTimeout(()=>{btn.textContent='💾';},800);
+/* ---------- Export / Import ---------- */
+function exportDataJSON(){
+  const normalized=projects.map(p=>({
+    name:p.name,
+    locales:p.locales.map(l=>({
+      name:l.name,
+      tasks:l.tasks.map(t=>({
+        name:t.name,
+        status:t.status,
+        assignee:t.assignee,
+        history:(t.history||[]).map(h=>({
+          from:(statuses.find(s=>s.key===h.from)?.label)||h.from,
+          to:(statuses.find(s=>s.key===h.to)?.label)||h.to,
+          by:h.by,
+          time:h.time
+        }))
+      }))
+    }))
+  }));
+  const blob=new Blob([JSON.stringify({projects:normalized,statuses},null,2)],{type:'application/json'});
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);
+  link.download=`dashboard_backup_${new Date().toISOString().slice(0,19)}.json`;
+  link.click();
 }
-function updateStatus(p,l,t,val){
-  const task=projects[p].locales[l].tasks[t];
-  const old=task.status||'(none)';
-  const now=new Date().toLocaleString();
-  if(!task.history)task.history=[];
-  task.history.push({from:old,to:val,by:'self',time:now});
-  task.status=val;
-  localStorage.setItem('projects',JSON.stringify(projects));
-  renderProjects();
-}
-function updateAssignee(p,l,t,email){
-  projects[p].locales[l].tasks[t].assignee=email;
-  if(email&&EMAILJS_SERVICE_ID){
-    emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
-      to_email:email,
-      project_name:projects[p].name,
-      task_name:projects[p].locales[l].tasks[t].name
+function exportDataCSV(){
+  let rows=[["Project","Locale","Task","From","To","By","Time"]];
+  projects.forEach(p=>{
+    p.locales.forEach(l=>{
+      l.tasks.forEach(t=>{
+        if(!t.history||!t.history.length){
+          rows.push([p.name,l.name,t.name,"","","",""]);
+        }else{
+          t.history.forEach(h=>{
+            const fromLabel=(statuses.find(s=>s.key===h.from)?.label)||h.from;
+            const toLabel=(statuses.find(s=>s.key===h.to)?.label)||h.to;
+            rows.push([p.name,l.name,t.name,fromLabel,toLabel,h.by,h.time]);
+          });
+        }
+      });
     });
-  }
-  localStorage.setItem('projects',JSON.stringify(projects));
-  renderProjects();
+  });
+  const csv=rows.map(r=>r.map(x=>`"${(x||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);
+  link.download=`dashboard_history_${new Date().toISOString().slice(0,19)}.csv`;
+  link.click();
 }
-function viewHistory(p,l,t){
-  const task=projects[p].locales[l].tasks[t];
-  if(!task.history||!task.history.length){alert(`History for "${task.name}":\n\nNo changes yet.`);return;}
-  const log=task.history.map(h=>{
-    const fromLabel=(statuses.find(s=>s.key===h.from)?.label)||h.from;
-    const toLabel=(statuses.find(s=>s.key===h.to)?.label)||h.to;
-    return `• ${h.time}: ${fromLabel} → ${toLabel}`;
-  }).join('\n');
-  alert(`History for "${task.name}":\n\n${log}`);
-}
-
-/* ---------- Undo ---------- */
-function undoLastDelete(){
-  if(!lastDeleted)return;
-  const d=lastDeleted;
-  switch(d.type){
-    case 'project':projects.splice(d.index,0,d.data);break;
-    case 'locale':projects[d.parent].locales.splice(d.index,0,d.data);break;
-    case 'task':projects[d.parentP].locales[d.parentL].tasks.splice(d.index,0,d.data);break;
-  }
-  lastDeleted=null;renderProjects();
+function importData(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const content=JSON.parse(e.target.result);
+    projects=content.projects||[];
+    statuses=content.statuses||statuses;
+    localStorage.setItem('projects',JSON.stringify(projects));
+    localStorage.setItem('statuses',JSON.stringify(statuses));
+    renderProjects();
+  };
+  reader.readAsText(file);
 }
 
 /* ---------- Init ---------- */
@@ -256,4 +265,3 @@ renderStatuses();
 </script>
 </body>
 </html>
-
