@@ -3,74 +3,125 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Full‑width Team Dashboard</title>
-
+<title>Dashboard – Final Improvements</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <style>
   .auto-grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}
 </style>
 </head>
 
-<body class="bg-gray-100 font-sans text-gray-800 min-h-screen flex flex-col">
-<header class="bg-gray-900 text-white py-4 px-6 flex flex-wrap justify-between items-center shadow">
-  <h1 class="text-lg font-semibold">Project Dashboard</h1>
-  <div class="flex flex-wrap gap-2">
-    <button id="addProjectBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">+ Project</button>
-    <button id="undoBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded hidden">Undo Delete</button>
-    <button onclick="exportDataJSON()" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded">Export JSON</button>
-    <button onclick="exportDataCSV()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded">Export CSV</button>
-    <label class="bg-white text-gray-800 border rounded px-2 py-1 cursor-pointer">
-      Import JSON
-      <input type="file" accept=".json" onchange="importData(this.files[0])" class="hidden">
-    </label>
-  </div>
-</header>
+<body class="flex h-screen bg-gray-100 text-gray-800 font-sans">
 
-<section id="statusManager" class="bg-white shadow rounded-lg mx-2 my-3 p-4">
-  <h3 class="font-medium mb-2">Customize Status Labels</h3>
-  <div id="statusList" class="space-y-1 mb-2"></div>
-  <button id="addStatusBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">+ Add Status</button>
-</section>
+<!-- ===== Sidebar (Big Projects) ===== -->
+<aside class="w-64 bg-gray-900 text-white flex flex-col p-4">
+  <h2 class="text-lg font-semibold mb-2">Big Projects</h2>
+  <button id="addBigBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded mb-3">+ Big Project</button>
+  <div id="bigList" class="flex-1 overflow-y-auto space-y-1"></div>
+</aside>
 
-<main id="projectContainer" class="flex-1 w-full m-0 p-0"></main>
+<!-- ===== Main Area ===== -->
+<main class="flex-1 flex flex-col overflow-hidden">
+  <header class="bg-gray-800 text-white py-3 px-6 flex justify-between items-center">
+    <h1 id="currentBigName" class="font-semibold text-lg">No Big Project Selected</h1>
+    <div class="space-x-2">
+      <button id="addProjectBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded hidden">+ Specific Project</button>
+      <button id="exportJSON" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded hidden">Export JSON</button>
+      <button id="exportCSV" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded hidden">Export CSV</button>
+      <label id="importLabel" class="hidden bg-white text-gray-800 border rounded px-2 py-1 cursor-pointer">
+        Import JSON
+        <input type="file" accept=".json" onchange="importData(this.files[0])" class="hidden">
+      </label>
+    </div>
+  </header>
 
-<footer class="bg-gray-200 text-center py-2 text-sm">
-  Last updated: <time id="lastUpdated"></time>
-</footer>
+  <!-- Collapsible status manager -->
+  <section id="statusManager" class="bg-white shadow rounded-lg mx-4 my-3 p-4">
+    <div class="flex justify-between items-center">
+      <h3 class="font-medium mb-2">Customize Status Labels</h3>
+      <button id="toggleStatusPanel" class="text-gray-600 hover:text-gray-900 text-xl leading-none">−</button>
+    </div>
+    <div id="statusPanelContent">
+      <div id="statusList" class="space-y-1 mb-2"></div>
+      <button id="addStatusBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">+ Add Status</button>
+    </div>
+  </section>
+
+  <div id="projectContainer" class="flex-1 overflow-auto px-4 pb-6"></div>
+</main>
 
 <script>
-const EMAILJS_PUBLIC_KEY='YOUR_PUBLIC_KEY';
-const EMAILJS_SERVICE_ID='YOUR_SERVICE_ID';
-const EMAILJS_TEMPLATE_ID='YOUR_TEMPLATE_ID';
-try{emailjs.init(EMAILJS_PUBLIC_KEY);}catch(e){}
-
-const container=document.getElementById('projectContainer');
-const addProjectBtn=document.getElementById('addProjectBtn');
-const addStatusBtn=document.getElementById('addStatusBtn');
-const undoBtn=document.getElementById('undoBtn');
-const lastUpdated=document.getElementById('lastUpdated');
-const statusList=document.getElementById('statusList');
-
-let projects=JSON.parse(localStorage.getItem('projects'))||[];
+/* ---------- Globals ---------- */
+let bigProjects=JSON.parse(localStorage.getItem('bigProjects'))||[];
+let activeBigIndex=null;
 let statuses=JSON.parse(localStorage.getItem('statuses'))||[
- {key:'todo',label:'To Do',color:'#fed7d7'},
- {key:'in‑progress',label:'In Progress',color:'#fefcbf'},
- {key:'done',label:'Done',color:'#c6f6d5'}
+  {key:'planning',label:'Planning',color:'#fef08a'},
+  {key:'design',label:'Design',color:'#bfdbfe'},
+  {key:'development',label:'Development',color:'#bbf7d0'},
+  {key:'testing',label:'Testing',color:'#fed7aa'},
+  {key:'completed',label:'Completed',color:'#c7f9cc'}
 ];
-let lastDeleted=null;
+function today(){return new Date().toISOString().slice(0,10);}
+function currentBig(){return bigProjects[activeBigIndex];}
 
-/* ---------- Status Manager ---------- */
+/* ---------- Sidebar rendering ---------- */
+const bigList=document.getElementById('bigList');
+
+function renderBigList(){
+  bigList.innerHTML='';
+  bigProjects.forEach((b,i)=>{
+    const row=document.createElement('div');
+    row.className="flex justify-between items-center px-2 py-1 rounded "+(i===activeBigIndex?"bg-blue-500":"hover:bg-gray-700");
+    const name=document.createElement('div');
+    name.textContent=b.name;
+    name.className="cursor-pointer flex-1";
+    name.onclick=()=>{selectBig(i);};
+    const controls=document.createElement('div');
+    controls.innerHTML=`<button class='text-sm text-yellow-300 hover:text-white mr-1' title='Rename' onclick='renameBig(${i})'>✎</button>
+                        <button class='text-sm text-red-400 hover:text-white' title='Delete' onclick='deleteBig(${i})'>✖</button>`;
+    row.appendChild(name);
+    row.appendChild(controls);
+    bigList.appendChild(row);
+  });
+  localStorage.setItem('bigProjects',JSON.stringify(bigProjects));
+}
+function addBigProject(){
+  const n=prompt("Big Project name:");if(!n)return;
+  bigProjects.push({name:n,projects:[]});
+  renderBigList();
+}
+function renameBig(i){
+  const n=prompt("Rename Big Project:",bigProjects[i].name);
+  if(!n)return;
+  bigProjects[i].name=n;
+  renderBigList();
+}
+function deleteBig(i){
+  if(!confirm("Delete this Big Project and all its contents?"))return;
+  bigProjects.splice(i,1);
+  activeBigIndex=null;
+  renderBigList();renderProjects();
+}
+function selectBig(i){
+  activeBigIndex=i;
+  renderBigList();
+  const bp=currentBig();
+  document.getElementById('currentBigName').textContent=bp.name;
+  ['addProjectBtn','exportJSON','exportCSV','importLabel'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+  renderProjects();
+}
+document.getElementById('addBigBtn').onclick=addBigProject;
+
+/* ---------- Status panel ---------- */
+const statusList=document.getElementById('statusList');
 function renderStatuses(){
   statusList.innerHTML='';
   statuses.forEach((s,i)=>{
-    const row=document.createElement('div');
-    row.className="flex items-center space-x-2";
-    row.innerHTML=`
-      <input type="text" value="${s.label}" onchange="updateStatusLabel(${i},this.value)" class="border rounded px-2 py-1 flex-1" />
-      <input type="color" value="${s.color}" onchange="updateStatusColor(${i},this.value)" />
-      <button onclick="removeStatus(${i})" class="text-red-600 hover:text-red-800">✖</button>`;
-    statusList.appendChild(row);
+    statusList.innerHTML+=`
+      <div class="flex items-center space-x-2">
+        <input type="text" value="${s.label}" onchange="updateStatusLabel(${i},this.value)" class="border rounded px-2 py-1 flex-1"/>
+        <input type="color" value="${s.color}" onchange="updateStatusColor(${i},this.value)"/>
+        <button onclick="removeStatus(${i})" class="text-red-600 hover:text-red-800">✖</button>
+      </div>`;
   });
   localStorage.setItem('statuses',JSON.stringify(statuses));
   renderProjects();
@@ -78,190 +129,189 @@ function renderStatuses(){
 function addStatus(){const n=prompt('Status name:');if(!n)return;statuses.push({key:n.toLowerCase().replace(/\s+/g,'-'),label:n,color:'#e5e5e5'});renderStatuses();}
 function updateStatusLabel(i,v){statuses[i].label=v;renderStatuses();}
 function updateStatusColor(i,v){statuses[i].color=v;renderStatuses();}
-function removeStatus(i){if(confirm('Delete this status?')){statuses.splice(i,1);renderStatuses();}}
+function removeStatus(i){if(confirm('Delete status?')){statuses.splice(i,1);renderStatuses();}}
+document.getElementById('addStatusBtn').onclick=addStatus;
+document.getElementById('toggleStatusPanel').onclick=()=>{
+  const box=document.getElementById('statusPanelContent');
+  box.classList.toggle('hidden');
+};
 
-/* ---------- Rendering ---------- */
+/* ---------- Rendering Projects ---------- */
 function renderProjects(){
-  container.innerHTML='';
-  const grid=document.createElement('div');
-  grid.className='auto-grid w-full px-0';
-  container.appendChild(grid);
-
-  const completeKey=statuses.at(-1)?.key||'done';
-
-  projects.forEach((p,pIdx)=>{
+  const pc=document.getElementById('projectContainer');
+  pc.innerHTML='';
+  if(activeBigIndex===null)return;
+  const bp=currentBig(),grid=document.createElement('div');grid.className='auto-grid';
+  bp.projects.forEach((p,pIdx)=>{
     const box=document.createElement('div');
-    box.className='bg-white rounded-lg shadow hover:shadow-md transition p-2 w-full';
+    box.className='bg-white rounded-lg shadow p-2';
     box.innerHTML=`
       <div class="flex justify-between items-center mb-2 px-2">
         <h2 class="text-lg font-semibold">${p.name}</h2>
-        <div class="space-x-1">
-          <button onclick="addLocale(${pIdx})" class="bg-blue-500 hover:bg-blue-600 text-white text-sm px-2 py-1 rounded">+ Locale</button>
-          <button onclick="removeProject(${pIdx})" class="bg-red-500 hover:bg-red-600 text-white text-sm px-2 py-1 rounded">Delete</button>
+        <div class="flex items-center space-x-1">
+          <select onchange="setProjectStatus(${pIdx},this.value)" class="border rounded text-xs px-1 py-0.5">
+            <option value="">Set All Locales Status…</option>
+            ${statuses.map(s=>`<option value='${s.key}'>${s.label}</option>`).join('')}
+          </select>
+          <input type="date" id="bulkDate-${pIdx}" class="hidden border rounded text-xs px-1">
+          <button class="bg-gray-400 hover:bg-gray-500 text-white text-xs px-2 rounded" onclick="toggleBulkDate(${pIdx})">🗓</button>
+          <button onclick="buildTasks(${pIdx})" class="bg-purple-500 hover:bg-purple-600 text-white text-xs px-2 py-1 rounded">🔧 Build Tasks</button>
+          <button onclick="addLocale(${pIdx})" class="bg-blue-400 hover:bg-blue-500 text-white text-xs px-2 py-1 rounded">+ Locale</button>
+          <button onclick="removeProject(${pIdx})" class="bg-red-400 hover:bg-red-500 text-white text-xs px-2 py-1 rounded">Delete</button>
         </div>
       </div>`;
-    grid.appendChild(box);
-
+    const comp=statuses.at(-1)?.key||'completed';
     const all=p.locales.flatMap(l=>l.tasks||[]);
-    const total=all.length;
-    const doneCount=all.filter(t=>t.status===completeKey).length;
-    const percent=total?Math.round(doneCount/total*100):0;
-    const color=percent>=66?'#16a34a':percent>=33?'#f59e0b':'#dc2626';
-    box.innerHTML+=`
-      <div class="h-2 bg-gray-200 rounded overflow-hidden mb-1 mx-2">
-        <div class="h-full transition-all duration-500 ease-out" style="width:${percent}%;background:${color}"></div>
-      </div>
-      <div class="text-sm text-right text-gray-600 mb-3 mr-2">${percent}% (${doneCount}/${total})</div>`;
-
+    const tot=all.length,done=all.filter(t=>t.status===comp).length;
+    const pct=tot?Math.round(done/tot*100):0;
+    const col=pct>=66?'#16a34a':pct>=33?'#f59e0b':'#dc2626';
+    box.innerHTML+=`<div class="h-2 bg-gray-200 rounded overflow-hidden mb-1 mx-2"><div class="h-full transition-all duration-500" style="width:${pct}%;background:${col}"></div></div>
+      <div class="text-xs text-right text-gray-600 mb-2 mr-2">${pct}% (${done}/${tot})</div>`;
     p.locales.forEach((loc,lIdx)=>{
-      const locDiv=document.createElement('div');
-      locDiv.className='border-t border-b border-gray-200 bg-gray-50 mt-3 mb-3';
-      locDiv.innerHTML=`
-        <div class="flex justify-between items-center mb-2 px-2">
-          <h3 class="font-medium">${loc.name}</h3>
-          <div class="space-x-1">
-            <button onclick="addTask(${pIdx},${lIdx})" class="bg-blue-400 hover:bg-blue-500 text-white text-xs px-2 py-1 rounded">+ Task</button>
-            <button onclick="removeLocale(${pIdx},${lIdx})" class="bg-red-400 hover:bg-red-500 text-white text-xs px-2 py-1 rounded">Delete</button>
-          </div>
-        </div>`;
-      box.appendChild(locDiv);
-
-      const tot=loc.tasks.length;
-      const done=loc.tasks.filter(t=>t.status===completeKey).length;
-      const pct=tot?Math.round(done/tot*100):0;
-      const c=pct>=66?'#16a34a':pct>=33?'#f59e0b':'#dc2626';
-      locDiv.innerHTML+=`
-        <div class="h-1.5 bg-gray-200 rounded overflow-hidden mb-1 mx-2">
-          <div class="h-1.5 transition-all duration-500 ease-out" style="width:${pct}%;background:${c}"></div>
-        </div>
-        <div class="text-xs text-right text-gray-500 mb-2 mr-2">${pct}% (${done}/${tot})</div>`;
-
-      const gridTasks=document.createElement('div');
-      gridTasks.className='grid sm:grid-cols-2 md:grid-cols-3 gap-2 w-full px-0 mx-0';
+      const ld=document.createElement('div');ld.className='border-t border-b border-gray-200 bg-gray-50 mt-2 mb-2 p-1';
+      ld.innerHTML=`<div class="flex justify-between items-center mb-2 px-1">
+        <h3 class="font-medium">${loc.name}</h3>
+        <button onclick="addTask(${pIdx},${lIdx})" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded">+ Task</button>
+      </div>`;
+      const tg=document.createElement('div');tg.className='grid sm:grid-cols-2 md:grid-cols-3 gap-2 px-2';
       loc.tasks.forEach((t,tIdx)=>{
         const s=statuses.find(x=>x.key===t.status)||statuses[0];
         const card=document.createElement('div');
-        card.className='rounded-md p-3 shadow bg-white border border-gray-200';
-        card.style.background=s.color;
-
-        let timelineHTML='';
-        if(t.history&&t.history.length>0){
-          const recent=[...t.history].slice(-3).reverse();
-          timelineHTML=recent.map(h=>{
-            const fromLabel=(statuses.find(s=>s.key===h.from)?.label)||h.from;
-            const toLabel=(statuses.find(s=>s.key===h.to)?.label)||h.to;
-            return `<div class="border-l-2 pl-2 text-xs mb-1 text-gray-700">
-                      <div>${fromLabel} → ${toLabel}</div>
-                      <div class="text-gray-500">${h.time}</div>
-                    </div>`;
-          }).join('');
-          if(t.history.length>3)
-            timelineHTML+=`<div class="text-blue-700 text-xs cursor-pointer" onclick="viewHistory(${pIdx},${lIdx},${tIdx})">View full</div>`;
-        }else{ timelineHTML='<div class="text-gray-500 text-xs">No history yet</div>'; }
-
+        card.className='rounded-md p-2 shadow border border-gray-200';card.style.background=s.color;
+        const hist=(t.history||[]).slice(-3).reverse().map(h=>{
+          const f=(statuses.find(s=>s.key===h.from)?.label)||h.from,to=(statuses.find(s=>s.key===h.to)?.label)||h.to,d=h.time||'-';
+          return `<div class='border-l-2 pl-2 text-xs mb-1 text-gray-800'><div>${f}→${to}</div><div class='text-gray-500'>${d}</div></div>`;
+        }).join('')||'<div class="text-gray-500 text-xs">No history yet</div>';
         card.innerHTML=`
-          <div class="font-semibold mb-1">${t.name}</div>
-          <input type="email" placeholder="Assignee email" value="${t.assignee||''}"
-                 onchange="updateAssignee(${pIdx},${lIdx},${tIdx},this.value)"
-                 class="w-full border rounded px-2 py-1 text-sm mb-1"/>
-          <div class="flex space-x-1 items-center mb-1">
-            <select id="status-${pIdx}-${lIdx}-${tIdx}" class="border rounded px-1 py-1 text-sm flex-1">
-              ${statuses.map(st=>`<option value="${st.key}" ${t.status===st.key?'selected':''}>${st.label}</option>`).join('')}
+          <div class="font-semibold">${t.name}</div>
+          <div class="flex space-x-1 mt-1 items-center">
+            <select id="status-${pIdx}-${lIdx}-${tIdx}" class="border rounded px-1 py-0.5 text-xs flex-1">
+              ${statuses.map(st=>`<option value='${st.key}' ${t.status===st.key?'selected':''}>${st.label}</option>`).join('')}
             </select>
-            <button class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded" onclick="saveStatus(${pIdx},${lIdx},${tIdx})">💾</button>
-            <button class="bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded" onclick="removeTask(${pIdx},${lIdx},${tIdx})">🗑</button>
+            <input type="date" id="date-${pIdx}-${lIdx}-${tIdx}" class="hidden border rounded text-xs px-1">
+            <button class="bg-gray-400 hover:bg-gray-500 text-white text-xs px-2 rounded" onclick="toggleDateInput(${pIdx},${lIdx},${tIdx})">🗓</button>
+            <button class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 rounded" onclick="saveStatus(${pIdx},${lIdx},${tIdx})">💾</button>
+            <button class="bg-red-500 hover:bg-red-600 text-white text-xs px-2 rounded" onclick="safeDelete(${pIdx},${lIdx},${tIdx})">✂️</button>
           </div>
-          <div>${timelineHTML}</div>`;
-        gridTasks.appendChild(card);
+          <div class="mt-1">${hist}</div>`;
+        tg.appendChild(card);
       });
-      locDiv.appendChild(gridTasks);
+      ld.appendChild(tg);box.appendChild(ld);
     });
+    grid.appendChild(box);
   });
-  lastUpdated.textContent=new Date().toLocaleString();
-  localStorage.setItem('projects',JSON.stringify(projects));
-  undoBtn.classList.toggle('hidden',!lastDeleted);
+  pc.appendChild(grid);
+  localStorage.setItem('bigProjects',JSON.stringify(bigProjects));
 }
 
-/* ---------- CRUD + helpers ---------- */
-function addProject(){const n=prompt('Project name:');if(!n)return;projects.push({name:n,locales:[]});renderProjects();}
-function removeProject(i){if(confirm('Delete project?')){lastDeleted={type:'project',data:projects[i],index:i};projects.splice(i,1);renderProjects();}}
-function addLocale(p){const n=prompt('Locale name:');if(!n)return;projects[p].locales.push({name:n,tasks:[]});renderProjects();}
-function removeLocale(p,l){if(confirm('Delete locale?')){lastDeleted={type:'locale',data:projects[p].locales[l],parent:p,index:l};projects[p].locales.splice(l,1);renderProjects();}}
-function addTask(p,l){const n=prompt('Task name:');if(!n)return;projects[p].locales[l].tasks.push({name:n,status:statuses[0].key,history:[]});renderProjects();}
-function removeTask(p,l,t){if(confirm('Delete task?')){lastDeleted={type:'task',data:projects[p].locales[l].tasks[t],parentP:p,parentL:l,index:t};projects[p].locales[l].tasks.splice(t,1);renderProjects();}}
-function saveStatus(p,l,t){const sel=document.getElementById(`status-${p}-${l}-${t}`);updateStatus(p,l,t,sel.value);}
-function updateStatus(p,l,t,val){const task=projects[p].locales[l].tasks[t];const old=task.status||'(none)';const now=new Date().toLocaleString();if(!task.history)task.history=[];task.history.push({from:old,to:val,by:'self',time:now});task.status=val;localStorage.setItem('projects',JSON.stringify(projects));renderProjects();}
-function updateAssignee(p,l,t,email){projects[p].locales[l].tasks[t].assignee=email;localStorage.setItem('projects',JSON.stringify(projects));renderProjects();}
-function viewHistory(p,l,t){const task=projects[p].locales[l].tasks[t];if(!task.history||!task.history.length)return alert(`No changes yet`);const log=task.history.map(h=>{const f=(statuses.find(s=>s.key===h.from)?.label)||h.from;const to=(statuses.find(s=>s.key===h.to)?.label)||h.to;return`• ${h.time}: ${f} → ${to}`;}).join('\n');alert(`History for "${task.name}":\n\n${log}`);}
-function undoLastDelete(){if(!lastDeleted)return;const d=lastDeleted;switch(d.type){case'project':projects.splice(d.index,0,d.data);break;case'locale':projects[d.parent].locales.splice(d.index,0,d.data);break;case'task':projects[d.parentP].locales[d.parentL].tasks.splice(d.index,0,d.data);break;}lastDeleted=null;renderProjects();}
+/* ---------- Build Tasks: manual input following project name ---------- */
+function buildTasks(pIdx){
+  const proj=currentBig().projects[pIdx];
+  const namesPrompt=prompt("Enter task numbers or names (separate by commas):");
+  if(!namesPrompt)return;
+  const names=namesPrompt.split(',').map(x=>x.trim()).filter(Boolean);
+  proj.locales.forEach(loc=>{
+    names.forEach((n,i)=>{
+      const tName=n?`${proj.name} – ${n}`:`${proj.name} – ${i+1}`;
+      loc.tasks.push({name:tName,status:statuses[0].key,history:[{from:'-',to:statuses[0].key,time:today()}]});
+    });
+  });
+  renderProjects();
+}
 
-/* ---------- Export / Import ---------- */
+/* ---------- Safe Delete ---------- */
+function safeDelete(p,l,t){
+  const task=currentBig().projects[p].locales[l].tasks[t];
+  if(!task.history||!task.history.length){
+    if(confirm("No history left. Delete task?")){
+      currentBig().projects[p].locales[l].tasks.splice(t,1);
+      renderProjects();
+    }return;
+  }
+  task.history.pop();renderProjects();
+}
+
+/* ---------- CRUD ---------- */
+function addProject(){const n=prompt("Specific Project name:");if(!n||activeBigIndex===null)return;currentBig().projects.push({name:n,locales:[]});renderProjects();}
+function removeProject(i){if(confirm("Delete this project?")){currentBig().projects.splice(i,1);renderProjects();}}
+function addLocale(p){const n=prompt("Locale name:");if(!n)return;currentBig().projects[p].locales.push({name:n,tasks:[]});renderProjects();}
+function addTask(p,l){
+  const proj=currentBig().projects[p];
+  const nextNum=currentBig().projects[p].locales[l].tasks.length+1;
+  const name=`${proj.name} – ${nextNum}`;
+  currentBig().projects[p].locales[l].tasks.push({name,status:statuses[0].key,history:[{from:'-',to:statuses[0].key,time:today()}]});
+  renderProjects();
+}
+
+/* ---------- Date helpers ---------- */
+function toggleDateInput(p,l,t){const i=document.getElementById(`date-${p}-${l}-${t}`);i.classList.toggle('hidden');if(!i.value)i.value=today();}
+function saveStatus(p,l,t){
+  const s=document.getElementById(`status-${p}-${l}-${t}`),d=document.getElementById(`date-${p}-${l}-${t}`);
+  const v=s.value,custom=!d.classList.contains('hidden')&&d.value?d.value:null;
+  updateStatus(p,l,t,v,custom);
+}
+function updateStatus(p,l,t,v,custom){
+  const task=currentBig().projects[p].locales[l].tasks[t];
+  const old=task.status||'(none)',now=custom||today();
+  if(!task.history)task.history=[];
+  task.history.push({from:old,to:v,time:now});
+  task.status=v;renderProjects();
+}
+
+/* ---------- Project-wide Status + Date ---------- */
+function toggleBulkDate(pIdx){
+  const i=document.getElementById(`bulkDate-${pIdx}`);
+  i.classList.toggle('hidden');
+  if(!i.value)i.value=today();
+}
+function setProjectStatus(pIdx,v){
+  if(!v)return;
+  const i=document.getElementById(`bulkDate-${pIdx}`);const d=!i.classList.contains('hidden')&&i.value?i.value:today();
+  const proj=currentBig().projects[pIdx];
+  proj.locales.forEach(loc=>{
+    loc.tasks.forEach(t=>{
+      const old=t.status;t.status=v;
+      if(!t.history)t.history=[];
+      t.history.push({from:old,to:v,time:d});
+    });
+  });
+  renderProjects();
+}
+
+/* ---------- Export / Import per Big ---------- */
 function exportDataJSON(){
-  const normalized=projects.map(p=>({
-    name:p.name,
-    locales:p.locales.map(l=>({
-      name:l.name,
-      tasks:l.tasks.map(t=>({
-        name:t.name,
-        status:t.status,
-        assignee:t.assignee,
-        history:(t.history||[]).map(h=>({
-          from:(statuses.find(s=>s.key===h.from)?.label)||h.from,
-          to:(statuses.find(s=>s.key===h.to)?.label)||h.to,
-          by:h.by,
-          time:h.time
-        }))
-      }))
-    }))
-  }));
-  const blob=new Blob([JSON.stringify({projects:normalized,statuses},null,2)],{type:'application/json'});
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(blob);
-  link.download=`dashboard_backup_${new Date().toISOString().slice(0,19)}.json`;
-  link.click();
+  if(activeBigIndex===null)return;
+  const bp=currentBig();
+  const blob=new Blob([JSON.stringify(bp,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`${bp.name.replace(/\s+/g,'_')}_${today()}.json`;a.click();
 }
 function exportDataCSV(){
-  let rows=[["Project","Locale","Task","From","To","By","Time"]];
-  projects.forEach(p=>{
-    p.locales.forEach(l=>{
-      l.tasks.forEach(t=>{
-        if(!t.history||!t.history.length){
-          rows.push([p.name,l.name,t.name,"","","",""]);
-        }else{
-          t.history.forEach(h=>{
-            const fromLabel=(statuses.find(s=>s.key===h.from)?.label)||h.from;
-            const toLabel=(statuses.find(s=>s.key===h.to)?.label)||h.to;
-            rows.push([p.name,l.name,t.name,fromLabel,toLabel,h.by,h.time]);
-          });
-        }
-      });
-    });
-  });
-  const csv=rows.map(r=>r.map(x=>`"${(x||"").replace(/"/g,'""')}"`).join(",")).join("\n");
-  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(blob);
-  link.download=`dashboard_history_${new Date().toISOString().slice(0,19)}.csv`;
-  link.click();
+  if(activeBigIndex===null)return;
+  const bp=currentBig();
+  let rows=[["BigProject","Project","Locale","Task","From","To","Date"]];
+  bp.projects.forEach(p=>p.locales.forEach(l=>l.tasks.forEach(t=>(t.history||[]).forEach(h=>{
+    const f=(statuses.find(s=>s.key===h.from)?.label)||h.from;
+    const to=(statuses.find(s=>s.key===h.to)?.label)||h.to;
+    rows.push([bp.name,p.name,l.name,t.name,f,to,h.time||'-']);
+  }))));
+  const csv=rows.map(r=>r.map(x=>`"${(x||"").replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`${bp.name.replace(/\s+/g,'_')}_${today()}.csv`;a.click();
 }
-function importData(file){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const content=JSON.parse(e.target.result);
-    projects=content.projects||[];
-    statuses=content.statuses||statuses;
-    localStorage.setItem('projects',JSON.stringify(projects));
-    localStorage.setItem('statuses',JSON.stringify(statuses));
-    renderProjects();
-  };
-  reader.readAsText(file);
+function importData(f){
+  if(activeBigIndex===null)return alert('Select Big Project first.');
+  const r=new FileReader();
+  r.onload=e=>{bigProjects[activeBigIndex]=JSON.parse(e.target.result);renderBigList();renderProjects();};
+  r.readAsText(f);
 }
 
 /* ---------- Init ---------- */
-addProjectBtn.onclick=addProject;
-addStatusBtn.onclick=addStatus;
-undoBtn.onclick=undoLastDelete;
-renderStatuses();
+document.getElementById('addProjectBtn').onclick=addProject;
+document.getElementById('exportJSON').onclick=exportDataJSON;
+document.getElementById('exportCSV').onclick=exportDataCSV;
+renderBigList();renderStatuses();
 </script>
 </body>
 </html>
