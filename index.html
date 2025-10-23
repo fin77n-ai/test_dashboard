@@ -22,8 +22,8 @@
   .task-box:hover{transform:translateY(-2px);}
   .task-name{font-weight:bold;margin-bottom:0.4rem;}
   .task-controls input,.task-controls select{width:100%;margin-bottom:4px;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;padding:3px;}
-  .box-footer{display:flex;justify-content:space-between;align-items:center;margin-top:0.4rem;}
   .save-btn{background:#3498db;color:#fff;border:none;border-radius:4px;padding:0.3rem 0.6rem;}
+  .box-footer{display:flex;justify-content:space-between;align-items:center;margin-top:0.4rem;}
   .timeline{background:rgba(255,255,255,0.7);border-radius:6px;margin-top:0.5rem;padding:0.4rem 0.6rem;font-size:0.8em;max-height:4.5rem;overflow-y:auto;}
   .timeline-entry{border-left:2px solid #999;padding-left:6px;margin-bottom:4px;}
   .timeline-entry small{color:#555;}
@@ -92,12 +92,17 @@ function renderStatuses(){
  localStorage.setItem('statuses',JSON.stringify(statuses));
  renderProjects();
 }
-function addStatus(){const n=prompt('Status name:');if(!n)return;statuses.push({key:n.toLowerCase().replace(/\s+/g,'-'),label:n,color:'#e0e0e0'});renderStatuses();}
+function addStatus(){
+  const n=prompt('Status name:');
+  if(!n)return;
+  statuses.push({key:n.toLowerCase().replace(/\s+/g,'-'),label:n,color:'#e0e0e0'});
+  renderStatuses();
+}
 function updateStatusLabel(i,v){statuses[i].label=v;renderStatuses();}
 function updateStatusColor(i,v){statuses[i].color=v;renderStatuses();}
 function removeStatus(i){if(confirm('Delete this status?')){statuses.splice(i,1);renderStatuses();}}
 
-/* ---------- Rendering ---------- */
+/* ---------- Rendering Projects/Locales/Tasks ---------- */
 function renderProjects(){
  container.innerHTML='';
  const pg=document.createElement('div');pg.className='project-grid';container.appendChild(pg);
@@ -140,23 +145,26 @@ function renderProjects(){
        const taskDiv=document.createElement('div');taskDiv.classList.add('task-box');
        taskDiv.style.background=s.color;
 
+       /* timeline HTML with mapped labels */
        let timelineHTML='';
        if(t.history&&t.history.length>0){
          const recent=[...t.history].slice(-3).reverse();
-         timelineHTML=recent.map(h=>`
-           <div class="timeline-entry">
-             <div>${h.from} → ${h.to}</div><small>${h.time}</small>
-           </div>`).join('');
+         timelineHTML=recent.map(h=>{
+           const fromLabel=(statuses.find(s=>s.key===h.from)?.label)||h.from;
+           const toLabel=(statuses.find(s=>s.key===h.to)?.label)||h.to;
+           return `<div class="timeline-entry"><div>${fromLabel} → ${toLabel}</div><small>${h.time}</small></div>`;
+         }).join('');
          if(t.history.length>3)
            timelineHTML+=`<span class="timeline-more" onclick="viewHistory(${pIdx},${lIdx},${tIdx})">View full</span>`;
-       } else { timelineHTML='<div class="timeline-entry"><small>No history yet</small></div>'; }
+       }else{
+         timelineHTML='<div class="timeline-entry"><small>No history yet</small></div>';
+       }
 
        taskDiv.innerHTML=`
          <div class="task-name">${t.name}</div>
          <div class="task-controls">
            <input type="email" placeholder="Assignee email"
-                  value="${t.assignee||''}"
-                  onchange="updateAssignee(${pIdx},${lIdx},${tIdx},this.value)" />
+                  value="${t.assignee||''}" onchange="updateAssignee(${pIdx},${lIdx},${tIdx},this.value)" />
            <select id="status-${pIdx}-${lIdx}-${tIdx}">
              ${statuses.map(st=>`<option value="${st.key}" ${t.status===st.key?'selected':''}>${st.label}</option>`).join('')}
            </select>
@@ -204,7 +212,7 @@ function updateStatus(p,l,t,newVal){
 function updateAssignee(p,l,t,email){
   const task=projects[p].locales[l].tasks[t];
   task.assignee=email;
-  if(email && EMAILJS_SERVICE_ID){
+  if(email&&EMAILJS_SERVICE_ID){
     emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
       to_email:email,project_name:projects[p].name,task_name:task.name
     });
@@ -213,9 +221,15 @@ function updateAssignee(p,l,t,email){
 }
 function viewHistory(p,l,t){
   const task=projects[p].locales[l].tasks[t];
-  const log=task.history&&task.history.length?
-    task.history.map(h=>`• ${h.time}: ${h.from} → ${h.to} by ${h.by}`).join('\n')
-    :'No changes yet.';
+  if(!task.history||!task.history.length){
+    alert(`History for "${task.name}":\n\nNo changes yet.`);
+    return;
+  }
+  const log=task.history.map(h=>{
+    const fromLabel=(statuses.find(s=>s.key===h.from)?.label)||h.from;
+    const toLabel=(statuses.find(s=>s.key===h.to)?.label)||h.to;
+    return `• ${h.time}: ${fromLabel} → ${toLabel} by ${h.by}`;
+  }).join('\n');
   alert(`History for "${task.name}":\n\n${log}`);
 }
 
