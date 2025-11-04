@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard – Final Improvements</title>
+<title>Dashboard – Market Sprints</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   .auto-grid {
@@ -14,15 +14,14 @@
 </style>
 </head>
 
-<!-- main page scrollable -->
 <body class="flex min-h-screen bg-gray-100 text-gray-800 font-sans overflow-y-auto">
 
 <!-- ===== Sidebar ===== -->
-<aside aria-label="Big Projects" class="w-64 bg-gray-900 text-white flex flex-col p-4">
-  <h2 class="text-lg font-semibold mb-2">Big Projects</h2>
+<aside aria-label="Market Sprints" class="w-64 bg-gray-900 text-white flex flex-col p-4">
+  <h2 class="text-lg font-semibold mb-2">Market Sprints</h2>
   <button id="addBigBtn"
     class="bg-blue-600 hover:bg-blue-700 text-sm px-3 py-1 rounded mb-3">
-    + Big Project
+    + Market Sprint
   </button>
   <div id="bigList" class="flex-1 overflow-y-auto space-y-1"></div>
 </aside>
@@ -30,7 +29,7 @@
 <!-- ===== Main Area ===== -->
 <main class="flex-1 flex flex-col overflow-hidden">
   <header class="bg-gray-800 text-white py-3 px-6 flex justify-between items-center">
-    <h1 id="currentBigName" class="font-semibold text-lg">No Big Project Selected</h1>
+    <h1 id="currentBigName" class="font-semibold text-lg">No Market Sprint Selected</h1>
     <div class="space-x-2">
       <button id="addProjectBtn" class="hidden bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
         + Specific Project
@@ -48,7 +47,7 @@
     </div>
   </header>
 
-  <!-- ===== Status Manager (scrollable) ===== -->
+  <!-- ===== Status Manager ===== -->
   <section id="statusManager"
     class="bg-white shadow rounded-lg mx-4 my-3 p-4 max-h-64 overflow-y-auto">
     <div class="flex justify-between items-center mb-2">
@@ -71,13 +70,12 @@
 /* ---------- Globals ---------- */
 const DEFAULT_LOCALES = ["ZHCN","JAJP","ENGB","ESLA","PTBR","FRFR","FRCA","DEDE"];
 const today = () => new Date().toISOString().slice(0,10);
-const currentBig = () => bigProjects[activeBigIndex];
+const currentBig = () => marketSprints[activeBigIndex];
 
-let bigProjects, statuses, activeBigIndex = null;
+let marketSprints, statuses, activeBigIndex = null;
 
-try {
-  bigProjects = JSON.parse(localStorage.getItem('bigProjects')) || [];
-} catch { bigProjects = []; }
+try { marketSprints = JSON.parse(localStorage.getItem('bigProjects')) || []; }
+catch { marketSprints = []; }
 
 try {
   statuses = JSON.parse(localStorage.getItem('statuses')) || [
@@ -93,7 +91,7 @@ try {
 const bigList=document.getElementById('bigList');
 function renderBigList(){
   bigList.innerHTML='';
-  bigProjects.forEach((b,i)=>{
+  marketSprints.forEach((b,i)=>{
     const row=document.createElement('div');
     row.className="flex justify-between items-center px-2 py-1 rounded "+(i===activeBigIndex?"bg-blue-500":"hover:bg-gray-700");
     row.innerHTML=`
@@ -104,15 +102,15 @@ function renderBigList(){
       </div>`;
     bigList.append(row);
   });
-  localStorage.setItem('bigProjects',JSON.stringify(bigProjects));
+  localStorage.setItem('bigProjects',JSON.stringify(marketSprints));
 }
 function addBigProject(){
-  const n=prompt("Big Project name:");if(!n)return;
-  bigProjects.push({name:n,projects:[]});
+  const n=prompt("Market Sprint name:");if(!n)return;
+  marketSprints.push({name:n,projects:[]});
   renderBigList();
 }
-function renameBig(i){const n=prompt("Rename big project:",bigProjects[i].name);if(!n)return;bigProjects[i].name=n;renderBigList();}
-function deleteBig(i){if(!confirm("Delete this Big Project and all its contents?"))return;bigProjects.splice(i,1);activeBigIndex=null;renderBigList();renderProjects();}
+function renameBig(i){const n=prompt("Rename Market Sprint:",marketSprints[i].name);if(!n)return;marketSprints[i].name=n;renderBigList();}
+function deleteBig(i){if(!confirm("Delete this Market Sprint and all its contents?"))return;marketSprints.splice(i,1);activeBigIndex=null;renderBigList();renderProjects();}
 function selectBig(i){
   activeBigIndex=i;renderBigList();
   document.getElementById('currentBigName').textContent=currentBig().name;
@@ -196,9 +194,10 @@ function renderProjects(){
         </div>`;
       const tg=document.createElement('div');tg.className='grid sm:grid-cols-2 md:grid-cols-3 gap-2 px-2';
       loc.tasks.forEach((t,tIdx)=>{
-        const s=statuses.find(x=>x.key===t.status)||statuses[0];
+        const s=statuses.find(x=>x.key===t.status);
         const card=document.createElement('div');
-        card.className='rounded-md p-2 shadow border border-gray-200';card.style.background=s.color;
+        card.className='rounded-md p-2 shadow border border-gray-200';
+        if (s) card.style.background=s.color;
         const hist=(t.history||[]).slice(-3).reverse().map(h=>{
           const f=statuses.find(x=>x.key===h.from)?.label||h.from;
           const to=statuses.find(x=>x.key===h.to)?.label||h.to;
@@ -209,6 +208,7 @@ function renderProjects(){
           <div class="flex flex-nowrap items-center space-x-1 mt-1">
             <select id="status-${pIdx}-${lIdx}-${tIdx}"
                     class="border rounded px-1 py-0.5 text-xs flex-1 min-w-0">
+              <option value="">(no status yet)</option>
               ${statuses.map(st=>`<option value='${st.key}' ${t.status===st.key?'selected':''}>${st.label}</option>`).join('')}
             </select>
             <input type="date" id="date-${pIdx}-${lIdx}-${tIdx}"
@@ -228,7 +228,7 @@ function renderProjects(){
     grid.append(box);
   });
   pc.append(grid);
-  localStorage.setItem('bigProjects',JSON.stringify(bigProjects));
+  localStorage.setItem('bigProjects',JSON.stringify(marketSprints));
 }
 
 /* ---------- CRUD ---------- */
@@ -242,26 +242,30 @@ function addProject(){
 }
 function removeProject(i){if(confirm("Delete this project?")){currentBig().projects.splice(i,1);renderProjects();}}
 function addLocale(p){const n=prompt("Locale name:");if(!n)return;currentBig().projects[p].locales.push({name:n,tasks:[]});renderProjects();}
+
+/* ---------- Tasks start with NO status ---------- */
 function addTask(p,l){
   const proj=currentBig().projects[p];
   const nextNum=proj.locales[l].tasks.length+1;
   const name=`${proj.name} – ${nextNum}`;
-  proj.locales[l].tasks.push({name,status:statuses[0].key,history:[{from:'-',to:statuses[0].key,time:today()}]});
+  proj.locales[l].tasks.push({name,status:'',history:[]});
   renderProjects();
 }
 function buildTasks(pIdx){
   const proj=currentBig().projects[pIdx];
-  const namesPrompt=prompt("Enter task numbers or names (separate by commas):");
+  const namesPrompt=prompt("Enter task numbers or names (separate by commas):");
   if(!namesPrompt)return;
   const names=namesPrompt.split(',').map(x=>x.trim()).filter(Boolean);
+  if(names.length===0)return;
   proj.locales.forEach(loc=>{
-    names.forEach((n,i)=>{
-      const tName=n?`${proj.name} – ${n}`:`${proj.name} – ${i+1}`;
-      loc.tasks.push({name:tName,status:statuses[0].key,history:[{from:'-',to:statuses[0].key,time:today()}]});
+    names.forEach(n=>{
+      const tName=`${proj.name} – ${n}`;
+      loc.tasks.push({name:tName,status:'',history:[]});
     });
   });
   renderProjects();
 }
+
 function safeDelete(p,l,t){
   const task=currentBig().projects[p].locales[l].tasks[t];
   if(!task.history||!task.history.length){
@@ -276,7 +280,7 @@ function toggleDateInput(p,l,t){const e=document.getElementById(`date-${p}-${l}-
 function saveStatus(p,l,t){
   const s=document.getElementById(`status-${p}-${l}-${t}`),d=document.getElementById(`date-${p}-${l}-${t}`);
   const v=s.value,custom=!d.classList.contains('hidden')&&d.value?d.value:null;
-  updateStatus(p,l,t,v,custom);
+  if(!v)return;updateStatus(p,l,t,v,custom);
 }
 function updateStatus(p,l,t,v,custom){
   const task=currentBig().projects[p].locales[l].tasks[t];
@@ -304,7 +308,7 @@ function exportDataJSON(){
 }
 function exportDataCSV(){
   if(activeBigIndex===null)return;
-  const bp=currentBig();const rows=[["BigProject","Project","Locale","Task","From","To","Date"]];
+  const bp=currentBig();const rows=[["MarketSprint","Project","Locale","Task","From","To","Date"]];
   bp.projects.forEach(p=>p.locales.forEach(l=>l.tasks.forEach(t=>(t.history||[]).forEach(h=>{
     const f=statuses.find(s=>s.key===h.from)?.label||h.from,to=statuses.find(s=>s.key===h.to)?.label||h.to;
     rows.push([bp.name,p.name,l.name,t.name,f,to,h.time||'-']);
@@ -314,9 +318,9 @@ function exportDataCSV(){
   a.href=URL.createObjectURL(blob);a.download=`${bp.name.replace(/\s+/g,'_')}_${today()}.csv`;a.click();
 }
 function importData(f){
-  if(activeBigIndex===null)return alert('Select Big Project first.');
+  if(activeBigIndex===null)return alert('Select Market Sprint first.');
   const r=new FileReader();
-  r.onload=e=>{bigProjects[activeBigIndex]=JSON.parse(e.target.result);renderBigList();renderProjects();};
+  r.onload=e=>{marketSprints[activeBigIndex]=JSON.parse(e.target.result);renderBigList();renderProjects();};
   r.readAsText(f);
 }
 
