@@ -19,10 +19,7 @@
 <!-- ===== Sidebar ===== -->
 <aside aria-label="Market Sprints" class="w-64 bg-gray-900 text-white flex flex-col p-4">
   <h2 class="text-lg font-semibold mb-2">Market Sprints</h2>
-  <button id="addBigBtn"
-    class="bg-blue-600 hover:bg-blue-700 text-sm px-3 py-1 rounded mb-3">
-    + Market Sprint
-  </button>
+  <button id="addBigBtn" class="bg-blue-600 hover:bg-blue-700 text-sm px-3 py-1 rounded mb-3">+ Market Sprint</button>
   <div id="bigList" class="flex-1 overflow-y-auto space-y-1"></div>
 </aside>
 
@@ -31,15 +28,9 @@
   <header class="bg-gray-800 text-white py-3 px-6 flex justify-between items-center">
     <h1 id="currentBigName" class="font-semibold text-lg">No Market Sprint Selected</h1>
     <div class="space-x-2">
-      <button id="addProjectBtn" class="hidden bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">
-        + Specific Project
-      </button>
-      <button id="exportJSON" class="hidden bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded">
-        Export JSON
-      </button>
-      <button id="exportCSV" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded">
-        Export CSV
-      </button>
+      <button id="addProjectBtn" class="hidden bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">+ Specific Project</button>
+      <button id="exportJSON" class="hidden bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded">Export JSON</button>
+      <button id="exportCSV" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded">Export CSV</button>
       <label id="importLabel" class="hidden bg-white text-gray-800 border rounded px-2 py-1 cursor-pointer">
         Import JSON
         <input type="file" accept=".json" onchange="importData(this.files[0])" class="hidden">
@@ -48,18 +39,14 @@
   </header>
 
   <!-- ===== Status Manager ===== -->
-  <section id="statusManager"
-    class="bg-white shadow rounded-lg mx-4 my-3 p-4 max-h-64 overflow-y-auto">
+  <section id="statusManager" class="bg-white shadow rounded-lg mx-4 my-3 p-4 max-h-64 overflow-y-auto">
     <div class="flex justify-between items-center mb-2">
       <h3 class="font-medium">Customize Status Labels</h3>
-      <button id="toggleStatusPanel"
-              class="text-gray-600 hover:text-gray-900 text-xl leading-none">−</button>
+      <button id="toggleStatusPanel" class="text-gray-600 hover:text-gray-900 text-xl leading-none">−</button>
     </div>
     <div id="statusPanelContent">
       <div id="statusList" class="space-y-1 mb-2"></div>
-      <button id="addStatusBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">
-        + Add Status
-      </button>
+      <button id="addStatusBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">+ Add Status</button>
     </div>
   </section>
 
@@ -67,75 +54,48 @@
 </main>
 
 <script>
-/* ---------- Globals ---------- */
+/* ---------- Globals & Helpers ---------- */
 const DEFAULT_LOCALES = ["ZHCN","JAJP","ENGB","ESLA","PTBR","FRFR","FRCA","DEDE"];
 const today = () => new Date().toISOString().slice(0,10);
 const currentBig = () => marketSprints[activeBigIndex];
 
 let marketSprints, statuses, activeBigIndex = null;
 
+function calculateBusinessDays(startDateString, endDateString) {
+  if (!startDateString || !endDateString) return 0;
+  let startDate = new Date(startDateString);
+  let endDate = new Date(endDateString);
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) { return 0; }
+  let businessDays = 0;
+  let currentDate = new Date(startDate);
+  while (currentDate <= endDate) {
+    const dayOfWeek = currentDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { businessDays++; }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  return businessDays;
+}
+
 try { marketSprints = JSON.parse(localStorage.getItem('bigProjects')) || []; }
 catch { marketSprints = []; }
 
 try {
   statuses = JSON.parse(localStorage.getItem('statuses')) || [
-    {key:'planning',label:'Planning',color:'#fef08a'},
-    {key:'design',label:'Design',color:'#bfdbfe'},
-    {key:'development',label:'Development',color:'#bbf7d0'},
-    {key:'testing',label:'Testing',color:'#fed7aa'},
-    {key:'completed',label:'Completed',color:'#c7f9cc'}
+    {key:'planning',label:'Planning',color:'#fef08a'}, {key:'design',label:'Design',color:'#bfdbfe'}, {key:'development',label:'Development',color:'#bbf7d0'}, {key:'testing',label:'Testing',color:'#fed7aa'}, {key:'completed',label:'Completed',color:'#c7f9cc'}
   ];
 } catch { statuses=[]; }
 
-/* ---------- Sidebar ---------- */
+/* ---------- Sidebar & Core Logic (No changes needed here) ---------- */
 const bigList=document.getElementById('bigList');
-function renderBigList(){
-  bigList.innerHTML='';
-  marketSprints.forEach((b,i)=>{
-    const row=document.createElement('div');
-    row.className="flex justify-between items-center px-2 py-1 rounded "+(i===activeBigIndex?"bg-blue-500":"hover:bg-gray-700");
-    row.innerHTML=`
-      <button class="flex-1 text-left" onclick="selectBig(${i})">${b.name}</button>
-      <div>
-        <button title="Rename" class="text-sm text-yellow-300 hover:text-white mr-1" onclick="renameBig(${i})">✎</button>
-        <button title="Delete" class="text-sm text-red-400 hover:text-white" onclick="deleteBig(${i})">✖</button>
-      </div>`;
-    bigList.append(row);
-  });
-  localStorage.setItem('bigProjects',JSON.stringify(marketSprints));
-}
-function addBigProject(){
-  const n=prompt("Market Sprint name:");if(!n)return;
-  marketSprints.push({name:n,projects:[]});
-  renderBigList();
-}
-function renameBig(i){const n=prompt("Rename Market Sprint:",marketSprints[i].name);if(!n)return;marketSprints[i].name=n;renderBigList();}
-function deleteBig(i){if(!confirm("Delete this Market Sprint and all its contents?"))return;marketSprints.splice(i,1);activeBigIndex=null;renderBigList();renderProjects();}
-function selectBig(i){
-  activeBigIndex=i;renderBigList();
-  document.getElementById('currentBigName').textContent=currentBig().name;
-  ['addProjectBtn','exportJSON','exportCSV','importLabel'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
-  renderProjects();
-}
+function renderBigList(){ bigList.innerHTML=''; marketSprints.forEach((b,i)=>{ const row=document.createElement('div'); row.className="flex justify-between items-center px-2 py-1 rounded "+(i===activeBigIndex?"bg-blue-500":"hover:bg-gray-700"); row.innerHTML=` <button class="flex-1 text-left" onclick="selectBig(${i})">${b.name}</button> <div> <button title="Rename" class="text-sm text-yellow-300 hover:text-white mr-1" onclick="renameBig(${i})">✎</button> <button title="Delete" class="text-sm text-red-400 hover:text-white" onclick="deleteBig(${i})">✖</button> </div>`; bigList.append(row); }); localStorage.setItem('bigProjects',JSON.stringify(marketSprints));}
+function addBigProject(){ const n=prompt("Market Sprint name:");if(!n)return; marketSprints.push({name:n,projects:[]}); renderBigList(); }
+function renameBig(i){ const n=prompt("Rename Market Sprint:",marketSprints[i].name);if(!n)return;marketSprints[i].name=n;renderBigList(); }
+function deleteBig(i){ if(!confirm("Delete this Market Sprint and all its contents?"))return;marketSprints.splice(i,1);activeBigIndex=null;renderBigList();renderProjects(); }
+function selectBig(i){ activeBigIndex=i;renderBigList(); document.getElementById('currentBigName').textContent=currentBig().name; ['addProjectBtn','exportJSON','exportCSV','importLabel'].forEach(id=>document.getElementById(id).classList.remove('hidden')); renderProjects(); }
 document.getElementById('addBigBtn').onclick=addBigProject;
 
-/* ---------- Status Manager ---------- */
 const statusList=document.getElementById('statusList');
-function renderStatuses(){
-  statusList.innerHTML='';
-  statuses.forEach((s,i)=>{
-    statusList.innerHTML += `
-      <div class="flex items-center space-x-2">
-        <input type="text" value="${s.label}" onchange="updateStatusLabel(${i},this.value)"
-               class="border rounded px-2 py-1 flex-1">
-        <input type="color" value="${s.color}" onchange="updateStatusColor(${i},this.value)">
-        <button onclick="removeStatus(${i})"
-                class="text-red-600 hover:text-red-800">✖</button>
-      </div>`;
-  });
-  localStorage.setItem('statuses',JSON.stringify(statuses));
-  renderProjects();
-}
+function renderStatuses(){ statusList.innerHTML=''; statuses.forEach((s,i)=>{ statusList.innerHTML += ` <div class="flex items-center space-x-2"> <input type="text" value="${s.label}" onchange="updateStatusLabel(${i},this.value)" class="border rounded px-2 py-1 flex-1"> <input type="color" value="${s.color}" onchange="updateStatusColor(${i},this.value)"> <button onclick="removeStatus(${i})" class="text-red-600 hover:text-red-800">✖</button> </div>`; }); localStorage.setItem('statuses',JSON.stringify(statuses)); renderProjects(); }
 function addStatus(){const n=prompt('Status name:');if(!n)return;statuses.push({key:n.toLowerCase().replace(/\s+/g,'-'),label:n,color:'#e5e5e5'});renderStatuses();}
 function updateStatusLabel(i,v){statuses[i].label=v;renderStatuses();}
 function updateStatusColor(i,v){statuses[i].color=v;renderStatuses();}
@@ -143,84 +103,34 @@ function removeStatus(i){if(!confirm('Delete status?'))return;statuses.splice(
 document.getElementById('addStatusBtn').onclick=addStatus;
 document.getElementById('toggleStatusPanel').onclick=()=>document.getElementById('statusPanelContent').classList.toggle('hidden');
 
-/* ---------- Projects Rendering ---------- */
+/* ---------- Projects Rendering (UI Update) ---------- */
 function renderProjects(){
   const pc=document.getElementById('projectContainer');pc.innerHTML='';
   if(activeBigIndex===null)return;
   const bp=currentBig();const grid=document.createElement('div');grid.className='auto-grid';
-
   bp.projects.forEach((p,pIdx)=>{
-    const box=document.createElement('div');box.className='bg-white rounded-lg shadow p-2';
-    box.innerHTML=`
-      <div class="flex justify-between items-center mb-2 px-2">
-        <h2 class="text-lg font-semibold">${p.name}</h2>
-        <div class="flex items-center space-x-1">
-          <select onchange="setProjectStatus(${pIdx},this.value)"
-                  class="border rounded text-xs px-1 py-0.5">
-            <option value="">Set All Locales Status…</option>
-            ${statuses.map(s=>`<option value='${s.key}'>${s.label}</option>`).join('')}
-          </select>
-          <input type="date" id="bulkDate-${pIdx}" class="hidden border rounded text-xs px-1">
-          <button class="bg-gray-400 hover:bg-gray-500 text-white text-xs px-2 rounded"
-                  onclick="toggleBulkDate(${pIdx})">🗓</button>
-          <button onclick="buildTasks(${pIdx})"
-                  class="bg-purple-500 hover:bg-purple-600 text-white text-xs px-2 py-1 rounded">🔧</button>
-          <button onclick="addLocale(${pIdx})"
-                  class="bg-blue-400 hover:bg-blue-500 text-white text-xs px-2 py-1 rounded">+ Locale</button>
-          <button onclick="removeProject(${pIdx})"
-                  class="bg-red-400 hover:bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button>
-        </div>
-      </div>`;
-
-    const all=p.locales.flatMap(l=>l.tasks||[]);
-    const comp=statuses.at(-1)?.key||'completed';
-    const tot=all.length,done=all.filter(t=>t.status===comp).length;
-    const pct=tot?Math.round(done/tot*100):0;
-    const col=pct>=66?'#16a34a':pct>=33?'#f59e0b':'#dc2626';
-    box.innerHTML += `
-      <div class="h-2 bg-gray-200 rounded overflow-hidden mb-1 mx-2">
-        <div class="h-full transition-all duration-500"
-             style="width:${pct}%;background:${col}"></div>
-      </div>
-      <div class="text-xs text-right text-gray-600 mb-2 mr-2">${pct}% (${done}/${tot})</div>`;
-
+    const box=document.createElement('div');box.className='bg-white rounded-lg shadow p-2';box.innerHTML=`<div class="flex justify-between items-center mb-2 px-2"> <h2 class="text-lg font-semibold">${p.name}</h2> <div class="flex items-center space-x-1"> <select onchange="setProjectStatus(${pIdx},this.value)" class="border rounded text-xs px-1 py-0.5"><option value="">Set All Locales Status…</option>${statuses.map(s=>`<option value='${s.key}'>${s.label}</option>`).join('')}</select> <input type="date" id="bulkDate-${pIdx}" class="hidden border rounded text-xs px-1"><button class="bg-gray-400 hover:bg-gray-500 text-white text-xs px-2 rounded" onclick="toggleBulkDate(${pIdx})">🗓</button><button onclick="buildTasks(${pIdx})" class="bg-purple-500 hover:bg-purple-600 text-white text-xs px-2 py-1 rounded">🔧</button><button onclick="addLocale(${pIdx})" class="bg-blue-400 hover:bg-blue-500 text-white text-xs px-2 py-1 rounded">+ Locale</button><button onclick="removeProject(${pIdx})" class="bg-red-400 hover:bg-red-500 text-white text-xs px-2 py-1 rounded">Del</button> </div> </div>`;
+    const all=p.locales.flatMap(l=>l.tasks||[]),comp=statuses.at(-1)?.key||'completed',tot=all.length,done=all.filter(t=>t.status===comp).length,pct=tot?Math.round(done/tot*100):0,col=pct>=66?'#16a34a':pct>=33?'#f59e0b':'#dc2626';
+    box.innerHTML += `<div class="h-2 bg-gray-200 rounded overflow-hidden mb-1 mx-2"><div class="h-full transition-all duration-500" style="width:${pct}%;background:${col}"></div></div><div class="text-xs text-right text-gray-600 mb-2 mr-2">${pct}% (${done}/${tot})</div>`;
     p.locales.forEach((loc,lIdx)=>{
-      const ld=document.createElement('div');ld.className='border-t border-b border-gray-200 bg-gray-50 mt-2 mb-2 p-1';
-      ld.innerHTML=`
-        <div class="flex justify-between items-center mb-2 px-1">
-          <h3 class="font-medium">${loc.name}</h3>
-          <button onclick="addTask(${pIdx},${lIdx})"
-                  class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded">+ Task</button>
-        </div>`;
+      const ld=document.createElement('div');ld.className='border-t border-b border-gray-200 bg-gray-50 mt-2 mb-2 p-1';ld.innerHTML=`<div class="flex justify-between items-center mb-2 px-1"><h3 class="font-medium">${loc.name}</h3><button onclick="addTask(${pIdx},${lIdx})" class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded">+ Task</button></div>`;
       const tg=document.createElement('div');tg.className='grid sm:grid-cols-2 md:grid-cols-3 gap-2 px-2';
       loc.tasks.forEach((t,tIdx)=>{
-        const s=statuses.find(x=>x.key===t.status);
-        const card=document.createElement('div');
-        card.className='rounded-md p-2 shadow border border-gray-200';
-        if (s) card.style.background=s.color;
-        const hist=(t.history||[]).slice(-3).reverse().map(h=>{
-          const f=statuses.find(x=>x.key===h.from)?.label||h.from;
-          const to=statuses.find(x=>x.key===h.to)?.label||h.to;
-          return `<div class='border-l-2 pl-2 text-xs mb-1 text-gray-800'><div>${f}→${to}</div><div class='text-gray-500'>${h.time||'-'}</div></div>`;
-        }).join('')||'<div class="text-gray-500 text-xs">No history yet</div>';
-        card.innerHTML=`
-          <div class="font-semibold">${t.name}</div>
-          <div class="flex flex-nowrap items-center space-x-1 mt-1">
-            <select id="status-${pIdx}-${lIdx}-${tIdx}"
-                    class="border rounded px-1 py-0.5 text-xs flex-1 min-w-0">
-              <option value="">(no status yet)</option>
-              ${statuses.map(st=>`<option value='${st.key}' ${t.status===st.key?'selected':''}>${st.label}</option>`).join('')}
-            </select>
-            <input type="date" id="date-${pIdx}-${lIdx}-${tIdx}"
-                   class="hidden border rounded text-xs px-1 w-[5.5rem]">
-            <button class="bg-gray-400 hover:bg-gray-500 text-white text-xs px-2 py-0.5 rounded"
-                    onclick="toggleDateInput(${pIdx},${lIdx},${tIdx})">🗓</button>
-            <button class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-0.5 rounded"
-                    onclick="saveStatus(${pIdx},${lIdx},${tIdx})">💾</button>
-            <button class="bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-0.5 rounded"
-                    onclick="safeDelete(${pIdx},${lIdx},${tIdx})">✂️</button>
-          </div>
-          <div class="mt-1">${hist}</div>`;
+        const s=statuses.find(x=>x.key===t.status),card=document.createElement('div');card.className='rounded-md p-2 shadow border border-gray-200';if(s)card.style.background=s.color;
+        
+        // CHANGED: Calculate duration of the CURRENT status for the UI badge
+        let currentStatusDurationHtml = '';
+        const lastHistoryEntry = t.history?.at(-1);
+        const isCompleted = t.status === (statuses.at(-1)?.key || 'completed');
+        if (t.status && lastHistoryEntry && !isCompleted) {
+          const businessDays = calculateBusinessDays(lastHistoryEntry.time, today());
+          if (businessDays > 0) {
+            currentStatusDurationHtml = `<span class="text-xs bg-gray-600 text-white font-medium px-2 py-0.5 rounded-full" title="Duration in current status">${businessDays}d</span>`;
+          }
+        }
+        
+        const hist=(t.history||[]).slice(-3).reverse().map(h=>{const f=statuses.find(x=>x.key===h.from)?.label||h.from,to=statuses.find(x=>x.key===h.to)?.label||h.to;return `<div class='border-l-2 pl-2 text-xs mb-1 text-gray-800'><div>${f}→${to}</div><div class='text-gray-500'>${h.time||'-'}</div></div>`;}).join('')||'<div class="text-gray-500 text-xs">No history yet</div>';
+        card.innerHTML=`<div class="flex justify-between items-start mb-1"><div class="font-semibold">${t.name}</div>${currentStatusDurationHtml}</div> <div class="flex flex-nowrap items-center space-x-1 mt-1"> <select id="status-${pIdx}-${lIdx}-${tIdx}" class="border rounded px-1 py-0.5 text-xs flex-1 min-w-0"><option value="">(no status yet)</option>${statuses.map(st=>`<option value='${st.key}' ${t.status===st.key?'selected':''}>${st.label}</option>`).join('')}</select> <input type="date" id="date-${pIdx}-${lIdx}-${tIdx}" class="hidden border rounded text-xs px-1 w-[5.5rem]"><button class="bg-gray-400 hover:bg-gray-500 text-white text-xs px-2 py-0.5 rounded" onclick="toggleDateInput(${pIdx},${lIdx},${tIdx})">🗓</button><button class="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-0.5 rounded" onclick="saveStatus(${pIdx},${lIdx},${tIdx})">💾</button><button class="bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-0.5 rounded" onclick="safeDelete(${pIdx},${lIdx},${tIdx})">✂️</button></div> <div class="mt-1">${hist}</div>`;
         tg.append(card);
       });
       ld.append(tg);box.append(ld);
@@ -231,104 +141,62 @@ function renderProjects(){
   localStorage.setItem('bigProjects',JSON.stringify(marketSprints));
 }
 
-/* ---------- CRUD ---------- */
-function addProject(){
-  const n=prompt("Specific Project name:");if(!n||activeBigIndex===null)return;
-  currentBig().projects.push({
-    name:n,
-    locales:DEFAULT_LOCALES.map(loc=>({name:loc,tasks:[]}))
-  });
-  renderProjects();
-}
+/* ---------- CRUD & Task Logic (No changes needed here) ---------- */
+function addProject(){ const n=prompt("Specific Project name:");if(!n||activeBigIndex===null)return; currentBig().projects.push({name:n,locales:DEFAULT_LOCALES.map(loc=>({name:loc,tasks:[]}))}); renderProjects();}
 function removeProject(i){if(confirm("Delete this project?")){currentBig().projects.splice(i,1);renderProjects();}}
 function addLocale(p){const n=prompt("Locale name:");if(!n)return;currentBig().projects[p].locales.push({name:n,tasks:[]});renderProjects();}
+function addTask(p,l){ const proj=currentBig().projects[p]; const nextNum=proj.locales[l].tasks.length+1; const name=`${proj.name} – ${nextNum}`; proj.locales[l].tasks.push({name,status:'',history:[]}); renderProjects();}
+function buildTasks(pIdx){ const proj=currentBig().projects[pIdx]; const namesPrompt=prompt("Enter task numbers or names (separate by commas):"); if(!namesPrompt)return; const names=namesPrompt.split(',').map(x=>x.trim()).filter(Boolean); if(names.length===0)return; proj.locales.forEach(loc=>{ names.forEach(n=>{ const tName=`${proj.name} – ${n}`; loc.tasks.push({name:tName,status:'',history:[]}); }); }); renderProjects();}
+function safeDelete(p,l,t){ const task=currentBig().projects[p].locales[l].tasks[t]; if(!task.history||!task.history.length){ if(confirm("No history left. Delete task?")){currentBig().projects[p].locales[l].tasks.splice(t,1);renderProjects();} return; } task.history.pop();renderProjects();}
+function toggleDateInput(p,l,t){const e=document.getElementById(`date-${p}-${l}-${t}`);e.classList.toggle('hidden');if(!e.value)e.value=today();}
+function saveStatus(p,l,t){ const s=document.getElementById(`status-${p}-${l}-${t}`),d=document.getElementById(`date-${p}-${l}-${t}`); const v=s.value,custom=!d.classList.contains('hidden')&&d.value?d.value:null; if(!v)return;updateStatus(p,l,t,v,custom);}
+function updateStatus(p,l,t,v,custom){ const task=currentBig().projects[p].locales[l].tasks[t]; const old=task.status||'(none)',now=custom||today(); if(!task.history)task.history=[]; task.history.push({from:old,to:v,time:now}); task.status=v;renderProjects();}
+function toggleBulkDate(pIdx){const e=document.getElementById(`bulkDate-${pIdx}`);e.classList.toggle('hidden');if(!e.value)e.value=today();}
+function setProjectStatus(pIdx,v){ if(!v)return; const e=document.getElementById(`bulkDate-${pIdx}`);const d=!e.classList.contains('hidden')&&e.value?e.value:today(); const proj=currentBig().projects[pIdx]; proj.locales.forEach(loc=>loc.tasks.forEach(t=>{ const old=t.status;t.status=v;if(!t.history)t.history=[];t.history.push({from:old,to:v,time:d}); })); renderProjects();}
 
-/* ---------- Tasks start with NO status ---------- */
-function addTask(p,l){
-  const proj=currentBig().projects[p];
-  const nextNum=proj.locales[l].tasks.length+1;
-  const name=`${proj.name} – ${nextNum}`;
-  proj.locales[l].tasks.push({name,status:'',history:[]});
-  renderProjects();
-}
-function buildTasks(pIdx){
-  const proj=currentBig().projects[pIdx];
-  const namesPrompt=prompt("Enter task numbers or names (separate by commas):");
-  if(!namesPrompt)return;
-  const names=namesPrompt.split(',').map(x=>x.trim()).filter(Boolean);
-  if(names.length===0)return;
-  proj.locales.forEach(loc=>{
-    names.forEach(n=>{
-      const tName=`${proj.name} – ${n}`;
-      loc.tasks.push({name:tName,status:'',history:[]});
+/* ---------- Export / Import (CSV Function Updated) ---------- */
+function exportDataJSON(){ if(activeBigIndex===null)return; const bp=currentBig();const blob=new Blob([JSON.stringify(bp,null,2)],{type:'application/json'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${bp.name.replace(/\s+/g,'_')}_${today()}.json`;a.click();}
+
+// CHANGED: This function now exports a detailed report of the duration of each status.
+function exportDataCSV() {
+  if (activeBigIndex === null) return alert('No Market Sprint selected.');
+  const bp = currentBig();
+  const rows = [["MarketSprint", "Project", "Locale", "Task", "Status", "Start Date", "End Date", "Duration (Business Days)"]];
+  bp.projects.forEach(p => {
+    p.locales.forEach(l => {
+      l.tasks.forEach(t => {
+        if (!t.history || t.history.length === 0) return;
+        t.history.forEach((h, i) => {
+          const statusLabel = statuses.find(s => s.key === h.to)?.label || h.to;
+          const startDate = h.time;
+          const endDate = (t.history[i + 1]) ? t.history[i + 1].time : today();
+          const duration = calculateBusinessDays(startDate, endDate);
+          if (duration === 0 && endDate === today()) return;
+          rows.push([
+            bp.name, p.name, l.name, t.name, statusLabel,
+            startDate || "N/A",
+            (t.history[i + 1]) ? endDate : "Ongoing",
+            duration
+          ]);
+        });
+      });
     });
   });
-  renderProjects();
+  const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${bp.name.replace(/\s+/g, '_')}_Status_Durations_${today()}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-function safeDelete(p,l,t){
-  const task=currentBig().projects[p].locales[l].tasks[t];
-  if(!task.history||!task.history.length){
-    if(confirm("No history left. Delete task?")){currentBig().projects[p].locales[l].tasks.splice(t,1);renderProjects();}
-    return;
-  }
-  task.history.pop();renderProjects();
-}
-
-/* ---------- Date / Status ---------- */
-function toggleDateInput(p,l,t){const e=document.getElementById(`date-${p}-${l}-${t}`);e.classList.toggle('hidden');if(!e.value)e.value=today();}
-function saveStatus(p,l,t){
-  const s=document.getElementById(`status-${p}-${l}-${t}`),d=document.getElementById(`date-${p}-${l}-${t}`);
-  const v=s.value,custom=!d.classList.contains('hidden')&&d.value?d.value:null;
-  if(!v)return;updateStatus(p,l,t,v,custom);
-}
-function updateStatus(p,l,t,v,custom){
-  const task=currentBig().projects[p].locales[l].tasks[t];
-  const old=task.status||'(none)',now=custom||today();
-  if(!task.history)task.history=[];
-  task.history.push({from:old,to:v,time:now});
-  task.status=v;renderProjects();
-}
-function toggleBulkDate(pIdx){const e=document.getElementById(`bulkDate-${pIdx}`);e.classList.toggle('hidden');if(!e.value)e.value=today();}
-function setProjectStatus(pIdx,v){
-  if(!v)return;
-  const e=document.getElementById(`bulkDate-${pIdx}`);const d=!e.classList.contains('hidden')&&e.value?e.value:today();
-  const proj=currentBig().projects[pIdx];
-  proj.locales.forEach(loc=>loc.tasks.forEach(t=>{
-    const old=t.status;t.status=v;if(!t.history)t.history=[];t.history.push({from:old,to:v,time:d});
-  }));
-  renderProjects();
-}
-
-/* ---------- Export / Import ---------- */
-function exportDataJSON(){
-  if(activeBigIndex===null)return;
-  const bp=currentBig();const blob=new Blob([JSON.stringify(bp,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${bp.name.replace(/\s+/g,'_')}_${today()}.json`;a.click();
-}
-function exportDataCSV(){
-  if(activeBigIndex===null)return;
-  const bp=currentBig();const rows=[["MarketSprint","Project","Locale","Task","From","To","Date"]];
-  bp.projects.forEach(p=>p.locales.forEach(l=>l.tasks.forEach(t=>(t.history||[]).forEach(h=>{
-    const f=statuses.find(s=>s.key===h.from)?.label||h.from,to=statuses.find(s=>s.key===h.to)?.label||h.to;
-    rows.push([bp.name,p.name,l.name,t.name,f,to,h.time||'-']);
-  }))));
-  const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download=`${bp.name.replace(/\s+/g,'_')}_${today()}.csv`;a.click();
-}
-function importData(f){
-  if(activeBigIndex===null)return alert('Select Market Sprint first.');
-  const r=new FileReader();
-  r.onload=e=>{marketSprints[activeBigIndex]=JSON.parse(e.target.result);renderBigList();renderProjects();};
-  r.readAsText(f);
-}
+function importData(f){ if(activeBigIndex===null)return alert('Select Market Sprint first.'); const r=new FileReader(); r.onload=e=>{marketSprints[activeBigIndex]=JSON.parse(e.target.result);renderBigList();renderProjects();}; r.readAsText(f); }
 
 /* ---------- Init ---------- */
 document.getElementById('addProjectBtn').onclick=addProject;
 document.getElementById('exportJSON').onclick=exportDataJSON;
 document.getElementById('exportCSV').onclick=exportDataCSV;
-
 renderBigList();
 renderStatuses();
 </script>
